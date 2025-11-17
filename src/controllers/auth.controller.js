@@ -64,7 +64,7 @@ async function loginUser(req, res) {
   }
 
   // if user exist then we check password
-  const isPasswordMatched = await bcrypt.compare(password, user.password);
+  const isPasswordMatched = bcrypt.compare(password, user.password);
 
   // if password not matched
   if (!isPasswordMatched) {
