@@ -3,10 +3,9 @@ const { Server, Socket } = require("socket.io");
 const cookie = require("cookie");
 const jwt = require("jsonwebtoken");
 const userModel = require("../models/user.model");
-const aiService = require('../services/ai.service')
+const aiService = require("../services/ai.service");
 const messageModel = require("../models/message.model");
 const { default: mongoose } = require("mongoose");
-
 
 // socket server init function
 // we pass httpServer because socket.io works on top of http server
@@ -36,39 +35,46 @@ function initSocketServer(httpServer) {
   // this runs when any user connects
   io.on("connection", (socket) => {
     socket.on("ai-message", async (messagePayload) => {
-
       // saving user message in the mongodb
       await messageModel.create({
-        chat:messagePayload.chat,
-        user:socket.user._id,
-        content:messagePayload.content,
-        role:"user"
-      })
+        chat: messagePayload.chat,
+        user: socket.user._id,
+        content: messagePayload.content,
+        role: "user",
+      });
 
       // getting chat history of the chat id
-      const chatHistory = await messageModel.find({chat:messagePayload.chat})
-    
+      const chatHistory = (
+        await messageModel
+          .find({ chat: messagePayload.chat })
+          .sort({ createdAt: -1 })
+          .limit(20)
+          .lean()
+      ).reverse();
+
       // getting ai response
-      const response = await aiService(chatHistory.map(item => {
-        return {
-          role:item.role,
-          parts:[{text:item.content}]
-        }
-      }))
+      const response = await aiService(
+        chatHistory.map((item) => {
+          return {
+            role: item.role,
+            parts: [{ text: item.content }],
+          };
+        })
+      );
 
       // sending ai response to the frontend
-      socket.emit('ai-response',{
-        content:response,
-        chat:messagePayload.chat
-      })
+      socket.emit("ai-response", {
+        content: response,
+        chat: messagePayload.chat,
+      });
 
       // saving model response in the mongodb
       await messageModel.create({
-        chat:messagePayload.chat,
-        user:socket.user._id,
-        content:response,
-        role:"model"
-      })
+        chat: messagePayload.chat,
+        user: socket.user._id,
+        content: response,
+        role: "model",
+      });
     });
   });
 }
